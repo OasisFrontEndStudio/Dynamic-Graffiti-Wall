@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多语言涂鸦墙</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #backgroundCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="backgroundCanvas"></canvas>
+
+    <script>
+        // 获取Canvas元素和上下文
+        const canvas = document.getElementById('backgroundCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置Canvas尺寸为窗口大小
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // 窗口大小改变时调整Canvas尺寸
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // 多语言短语 - "经历你未曾所想，从这里开始" 的翻译
+        const phrases = [
+            {text: "经历你未曾所想，从这里开始", language: "中文"},
+            {text: "Experience the unimagined, start here", language: "English"},
+            {text: "Vivez l'inimaginable, commencez ici", language: "Français"},
+            {text: "Erlebe das Unvorstellbare, beginne hier", language: "Deutsch"},
+            {text: "Vivi l'inimmaginabile, inizia da qui", language: "Italiano"},
+            {text: "Experimenta lo inimaginable, comienza aquí", language: "Español"},
+            {text: "経験したことのないことを経験してください、ここから始めましょう", language: "日本語"},
+            {text: "상상하지 못한 경험을 하세요, 여기에서 시작하세요", language: "한국어"},
+            {text: "Испытайте невообразимое, начните здесь", language: "Русский"},
+            {text: "اختبر ما لم تتخيله، ابدأ من هنا", language: "العربية"},
+            {text: "अकल्पनीय अनुभव करें, यहां से शुरू करें", language: "हिन्दी"},
+            {text: "Experiență neimaginabilul, începe aici", language: "Română"},
+            {text: "Upplev det ofattbara, börja här", language: "Svenska"},
+            {text: "Ervaar het onvoorstelbare, begin hier", language: "Nederlands"},
+            {text: "Doživite nezamislivo, počnite ovdje", language: "Hrvatski"},
+            {text: "Αντιμετωπίστε το αδιανόητο, ξεκινήστε εδώ", language: "Ελληνικά"},
+            {text: "מצא את הבלתי נתפס, התחל כאן", language: "עברית"},
+            {text: "Dozivi nepojmljivo, počni ovdje", language: "Bosanski"},
+            {text: "Pajautājiet neiedomājamo, sāciet šeit", language: "Latviešu"},
+            {text: "Patirkite neįsivaizduojamą, pradėkite čia", language: "Lietuvių"},
+            {text: "经历你未曾所想，从这里开始", language: "中文简体"},
+            {text: "經歷你未曾所想，從這裡開始", language: "中文繁體"},
+            {text: "Doživite nezamislivo, počnite ovdje", language: "Srpski"},
+            {text: "Kogeni usiyofikiria, anza hapa", language: "Swahili"},
+            {text: "Dozivite nezamislivo, počnite ovde", language: "Crnogorski"},
+            {text: "Pajautājiet neiedomājamo, sāciet šeit", language: "Latgalian"}
+        ];
+        
+        // 涂鸦对象数组
+        let doodles = [];
+        
+        // 涂鸦类
+        class Doodle {
+            constructor(x, y, text, language, size = 1) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.language = language;
+                this.size = size;
+                this.rotation = Math.random() * Math.PI * 0.4 - Math.PI * 0.2; // 随机旋转角度
+                this.opacity = 0.8 + Math.random() * 0.2;
+                this.color = this.getRandomColor();
+                this.speedX = (Math.random() - 0.5) * 1.5; // 增加移动速度
+                this.speedY = (Math.random() - 0.5) * 1.5; // 增加移动速度
+                this.wobble = Math.random() * 0.02;
+                this.wobbleSpeed = Math.random() * 0.05 + 0.02;
+                this.time = 0;
+                this.pulse = 0;
+                this.pulseSpeed = Math.random() * 0.03 + 0.01;
+                this.maxSpeed = 2.5; // 最大速度
+                this.hover = false;
+            }
+            
+            // 获取随机蓝绿色调
+            getRandomColor() {
+                const colors = [
+                    '#1a9fff', '#00c6ff', '#0affd9', '#2af598', '#00ffaa',
+                    '#08f7fe', '#09fbd3', '#00ffcc', '#00e6ff', '#0fdaf9',
+                    '#00e6e6', '#00cccc', '#00b3b3', '#009999', '#008080',
+                    '#0ac8ff', '#1ee3ff', '#3af7c8', '#5effb5', '#7affa8'
+                ];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            // 更新位置
+            update() {
+                // 增加一点随机性，使移动更自然
+                this.speedX += (Math.random() - 0.5) * 0.1;
+                this.speedY += (Math.random() - 0.5) * 0.1;
+                
+                // 限制最大速度
+                if (Math.abs(this.speedX) > this.maxSpeed) this.speedX = Math.sign(this.speedX) * this.maxSpeed;
+                if (Math.abs(this.speedY) > this.maxSpeed) this.speedY = Math.sign(this.speedY) * this.maxSpeed;
+                
+                // 更新位置
+                this.x += this.speedX;
+                this.y += this.speedY;
+                
+                // 边界反弹 - 更加流畅
+                if (this.x < 0) {
+                    this.x = 0;
+                    this.speedX = Math.abs(this.speedX) * 0.9;
+                }
+                if (this.x > canvas.width) {
+                    this.x = canvas.width;
+                    this.speedX = -Math.abs(this.speedX) * 0.9;
+                }
+                if (this.y < 0) {
+                    this.y = 0;
+                    this.speedY = Math.abs(this.speedY) * 0.9;
+                }
+                if (this.y > canvas.height) {
+                    this.y = canvas.height;
+                    this.speedY = -Math.abs(this.speedY) * 0.9;
+                }
+                
+                // 时间增加，用于摆动和脉冲效果
+                this.time += this.wobbleSpeed;
+                this.pulse += this.pulseSpeed;
+            }
+            
+            // 检查鼠标悬停
+            checkHover(mouseX, mouseY) {
+                const dx = this.x - mouseX;
+                const dy = this.y - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const fontSize = 18 * this.size;
+                this.hover = distance < fontSize * 2; // 悬停区域
+                return this.hover;
+            }
+            
+            // 绘制涂鸦
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation + Math.sin(this.time) * this.wobble);
+                
+                // 设置字体
+                const fontSize = 18 * this.size;
+                const fontFamily = this.language === '中文' || this.language === '中文简体' || 
+                                  this.language === '中文繁體' || this.language === '日本語' ? 
+                    "'Microsoft YaHei', 'Hiragino Sans GB', sans-serif" : 
+                    "'Arial', sans-serif";
+                
+                ctx.font = `bold ${fontSize}px ${fontFamily}`;
+                
+                // 脉冲效果
+                const pulseValue = Math.sin(this.pulse) * 0.2 + 0.8;
+                
+                // 悬停效果
+                if (this.hover) {
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.globalAlpha = 1;
+                } else {
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 8;
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = this.opacity * pulseValue;
+                }
+                
+                // 绘制文本
+                ctx.fillText(this.text, 0, 0);
+                
+                // 绘制语言标签
+                ctx.font = `italic ${fontSize * 0.6}px Arial`;
+                ctx.fillText(`[${this.language}]`, 0, fontSize * 1.2);
+                
+                ctx.restore();
+            }
+        }
+        
+        // 初始化涂鸦
+        function initDoodles() {
+            doodles = [];
+            
+            // 创建初始涂鸦 - 每种语言至少一个
+            phrases.forEach(phrase => {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 0.7 + Math.random() * 1.3;
+                
+                doodles.push(new Doodle(x, y, phrase.text, phrase.language, size));
+            });
+            
+            // 添加一些额外的随机涂鸦
+            for (let i = 0; i < 15; i++) {
+                const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 0.7 + Math.random() * 1.3;
+                
+                doodles.push(new Doodle(x, y, phrase.text, phrase.language, size));
+            }
+        }
+        
+        // 绘制渐变背景
+        function drawBackground() {
+            // 创建蓝绿渐变
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#0a2a43'); // 深蓝
+            gradient.addColorStop(0.3, '#0d4d4d'); // 蓝绿
+            gradient.addColorStop(0.6, '#0a6e6e'); // 中绿
+            gradient.addColorStop(1, '#08a8a8'); // 浅绿
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 添加一些微妙的噪点效果
+            const noiseOpacity = 0.03;
+            for (let i = 0; i < 150; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const radius = Math.random() * 2;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * noiseOpacity})`;
+                ctx.fill();
+            }
+        }
+        
+        // 动画循环
+        function animate() {
+            // 绘制背景
+            drawBackground();
+            
+            // 更新和绘制所有涂鸦
+            doodles.forEach(doodle => {
+                doodle.update();
+                doodle.draw();
+            });
+            
+            // 绘制连接线
+            drawConnections();
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // 在涂鸦之间绘制连接线
+        function drawConnections() {
+            for (let i = 0; i < doodles.length; i++) {
+                for (let j = i + 1; j < doodles.length; j++) {
+                    const dx = doodles[i].x - doodles[j].x;
+                    const dy = doodles[i].y - doodles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 如果涂鸦之间的距离小于250px，绘制连接线
+                    if (distance < 250) {
+                        ctx.beginPath();
+                        ctx.moveTo(doodles[i].x, doodles[i].y);
+                        ctx.lineTo(doodles[j].x, doodles[j].y);
+                        
+                        // 根据距离调整透明度和宽度
+                        const opacity = 0.1 * (1 - distance/250);
+                        const lineWidth = 0.5 + (1 - distance/250) * 1.5;
+                        
+                        ctx.strokeStyle = `rgba(10, 255, 217, ${opacity})`;
+                        ctx.lineWidth = lineWidth;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        // 鼠标交互
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        // 更新鼠标位置并检查悬停
+        function updateMousePosition(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // 检查所有涂鸦的悬停状态
+            doodles.forEach(doodle => {
+                doodle.checkHover(mouseX, mouseY);
+            });
+        }
+        
+        // 鼠标滚轮调整涂鸦大小
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            // 找到最接近鼠标的涂鸦
+            let closestDoodle = null;
+            let closestDistance = Infinity;
+            
+            doodles.forEach(doodle => {
+                const dx = doodle.x - mouseX;
+                const dy = doodle.y - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < closestDistance && distance < 150) {
+                    closestDistance = distance;
+                    closestDoodle = doodle;
+                }
+            });
+            
+            // 调整最接近的涂鸦大小
+            if (closestDoodle) {
+                if (e.deltaY < 0) {
+                    closestDoodle.size += 0.15;
+                    if (closestDoodle.size > 4) closestDoodle.size = 4;
+                } else {
+                    closestDoodle.size -= 0.15;
+                    if (closestDoodle.size < 0.4) closestDoodle.size = 0.4;
+                }
+            }
+        });
+        
+        // 鼠标移动事件 - 仅用于悬停效果
+        canvas.addEventListener('mousemove', updateMousePosition);
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // 空格键清空并重置涂鸦
+            if (e.code === 'Space') {
+                doodles = [];
+                initDoodles();
+            }
+            // R键重置涂鸦
+            else if (e.code === 'KeyR') {
+                initDoodles();
+            }
+            // S键增加所有涂鸦速度
+            else if (e.code === 'KeyS') {
+                doodles.forEach(doodle => {
+                    doodle.speedX *= 1.5;
+                    doodle.speedY *= 1.5;
+                });
+            }
+            // D键减少所有涂鸦速度
+            else if (e.code === 'KeyD') {
+                doodles.forEach(doodle => {
+                    doodle.speedX *= 0.7;
+                    doodle.speedY *= 0.7;
+                });
+            }
+            // C键切换连接线显示
+            else if (e.code === 'KeyC') {
+                // 通过切换函数实现
+                const originalDrawConnections = drawConnections;
+                drawConnections = function() {};
+                setTimeout(() => {
+                    drawConnections = originalDrawConnections;
+                }, 30000); // 30秒后恢复
+            }
+            // P键暂停/恢复涂鸦移动
+            else if (e.code === 'KeyP') {
+                const originalUpdate = Doodle.prototype.update;
+                Doodle.prototype.update = function() {};
+                setTimeout(() => {
+                    Doodle.prototype.update = originalUpdate;
+                }, 5000); // 5秒后恢复
+            }
+        });
+        
+        // 双击随机调整所有涂鸦颜色
+        canvas.addEventListener('dblclick', () => {
+            doodles.forEach(doodle => {
+                doodle.color = doodle.getRandomColor();
+            });
+        });
+        
+        // 初始化并开始动画
+        initDoodles();
+        animate();
+        
+        // 页面加载后添加一些动画效果
+        setTimeout(() => {
+            // 给一些涂鸦增加初始速度
+            doodles.forEach((doodle, index) => {
+                if (index % 3 === 0) {
+                    doodle.speedX *= 1.5;
+                    doodle.speedY *= 1.5;
+                }
+            });
+        }, 1000);
+    </script>
+</body>
+</html>
